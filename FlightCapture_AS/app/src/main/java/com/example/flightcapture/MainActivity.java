@@ -46,12 +46,12 @@ import android.media.ExifInterface;
 
 import org.apache.http.impl.io.ContentLengthInputStream;
 
-public class MainActivity extends Activity 
+public class MainActivity extends Activity
 		implements SurfaceHolder.Callback, Camera.ShutterCallback, Camera.PictureCallback,
 		SensorEventListener, RadioGroup.OnCheckedChangeListener {
 
 	private static final String TAG = "MyActivity";
-		
+
 	public static final int MEDIA_TYPE_IMAGE = 1;
 	public static final int MEDIA_TYPE_VIDEO = 2;
 
@@ -61,21 +61,21 @@ public class MainActivity extends Activity
 	private static int TOTAL_FRAMES = 10;			//Default number of frames to snap
 	private static int TOTAL_COUNT = 0;
 	private static final int TIME_BETWEEN_GPS = 0;
-	
+
 	// Time Mode
 	private static float TIME_TO_TRAVEL = 3000;		//Time in milliseconds
-	
+
 	// Distance Mode
 	public static boolean DISTANCE = false;
 	public static float DISTANCE_TO_TRAVEL = 2;	//Distance in meters
 	public static boolean FIRST_DISTANCE = false;
-	
+
 	Camera mCamera;
-    SurfaceView mSurfaceView;
-    SurfaceHolder mHolder;
-    
-    LocationManager locationManager;
-    Location currentLocation, previousLocation;
+	SurfaceView mSurfaceView;
+	SurfaceHolder mHolder;
+
+	LocationManager locationManager;
+	Location currentLocation, previousLocation;
 
 	// ADDED SENSOR CODE
 	private SensorManager mSensorManager = null;
@@ -123,28 +123,41 @@ public class MainActivity extends Activity
 	DecimalFormat d = new DecimalFormat("#.##");
 	// END ADDED SENSOR CODE
 
+	// ADD IVAN CUSTOM CODE
+	private String accAzimuth;// = NaN;
+	private String accPitch;// = NaN;
+	private String accRoll;// = NaN;
+
+	private String gyroAzimuth;// = NaN;
+	private String gyroPitch;// = NaN;
+	private String gyroRoll;// = NaN;
+
+	private String fusedAzimuth;// = NaN;
+	private String fusedPitch;// = NaN;
+	private String fusedRoll;// = NaN;
+	// END IVAN CUSTOM CODE
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		
-        // Install a SurfaceHolder.Callback so we get notified when the
-        // underlying surface is created and destroyed.
-		mSurfaceView = (SurfaceView)findViewById(R.id.preview);
-        mHolder = mSurfaceView.getHolder();
-        mHolder.addCallback(this);
-		
-        if (checkCameraHardware(this))
-        {
-        	safeCameraOpen(false);
-        }
-        
-        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
 
-        // For now I can use the keep screen on flag and leave in portrait to keep the app working
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);		// Band-aid
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);	// Band-aid
+		// Install a SurfaceHolder.Callback so we get notified when the
+		// underlying surface is created and destroyed.
+		mSurfaceView = (SurfaceView)findViewById(R.id.preview);
+		mHolder = mSurfaceView.getHolder();
+		mHolder.addCallback(this);
+
+		if (checkCameraHardware(this))
+		{
+			safeCameraOpen(false);
+		}
+
+		locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+
+		// For now I can use the keep screen on flag and leave in portrait to keep the app working
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);		// Band-aid
+		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);	// Band-aid
 
 
 		// ADDED SENSOR CODE
@@ -187,13 +200,13 @@ public class MainActivity extends Activity
 		getMenuInflater().inflate(R.menu.activity_main, menu);
 		return true;
 	}
-		
+
 	@Override
 	public void onStart()
 	{
 		super.onStart();
 	}
-	
+
 	@Override
 	public void onResume()
 	{
@@ -206,7 +219,7 @@ public class MainActivity extends Activity
 		initListeners();
 		// END ADDED SENSOR CODE
 	}
-	
+
 	@Override
 	public void onPause()
 	{
@@ -219,7 +232,7 @@ public class MainActivity extends Activity
 		mSensorManager.unregisterListener(this);
 		// END ADDED SENSOR CODE
 	}
-	
+
 	@Override
 	public void onStop()
 	{
@@ -230,7 +243,7 @@ public class MainActivity extends Activity
 		mSensorManager.unregisterListener(this);
 		// END ADDED SENSOR CODE
 	}
-	
+
 	@Override
 	public void onDestroy()
 	{
@@ -238,45 +251,45 @@ public class MainActivity extends Activity
 		stopPreviewAndFreeCamera();
 		locationManager.removeUpdates(listener);
 	}
-	
-	private boolean safeCameraOpen(boolean qOpened) {
-	  
-	    try {
-	        releaseCameraAndPreview();
-	        mCamera = Camera.open();		// Override 'id' and set to first back facing camera
-	        qOpened = (mCamera != null);
-	    } catch (Exception e) {
-	        Log.e(getString(R.string.app_name), "failed to open Camera");
-	        e.printStackTrace();
-	    }
 
-	    return qOpened;    
+	private boolean safeCameraOpen(boolean qOpened) {
+
+		try {
+			releaseCameraAndPreview();
+			mCamera = Camera.open();		// Override 'id' and set to first back facing camera
+			qOpened = (mCamera != null);
+		} catch (Exception e) {
+			Log.e(getString(R.string.app_name), "failed to open Camera");
+			e.printStackTrace();
+		}
+
+		return qOpened;
 	}
-	
+
 	private void releaseCameraAndPreview() {
 
-	    if (mCamera != null) {
-	        mCamera.release();
-	        mCamera = null;
-	    }
+		if (mCamera != null) {
+			mCamera.release();
+			mCamera = null;
+		}
 	}
-	
+
 	/**
-	  * When this function returns, mCamera will be null.
-	  */
+	 * When this function returns, mCamera will be null.
+	 */
 	private void stopPreviewAndFreeCamera() {
-	    if (mCamera != null) {
-	        mCamera.stopPreview();	// Call stopPreview() to stop updating the preview surface.
-	        mCamera.release();		// To release the camera for use by other apps
-	        mCamera = null;
-	    }
+		if (mCamera != null) {
+			mCamera.stopPreview();	// Call stopPreview() to stop updating the preview surface.
+			mCamera.release();		// To release the camera for use by other apps
+			mCamera = null;
+		}
 	}
-	
+
 	public void onCancelClick(View v)
 	{
 		finish();
 	}
-	
+
 	public void onSnapClick(View v)
 	{
 		//Snap a single photo
@@ -286,7 +299,7 @@ public class MainActivity extends Activity
 		storeDir = "SingleShot";
 		mCamera.takePicture(this, null, null, this);
 	}
-	
+
 	public void onStartTimeClick(View v)
 	{
 		//Snap a stream of photos based on a time interval
@@ -295,9 +308,9 @@ public class MainActivity extends Activity
 		FIRST_DISTANCE = false;
 		TOTAL_COUNT = 0;
 		CAMERA_READY = true;
-		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssS").format(new Date());
 		storeDir = "TimePics_" + timeStamp;
-		try 
+		try
 		{
 			EditText readTime = (EditText) findViewById(R.id.editTime);
 			if (readTime != null)
@@ -310,11 +323,11 @@ public class MainActivity extends Activity
 		}
 		Toast.makeText(getBaseContext(), "Time Mode", Toast.LENGTH_SHORT).show();
 
-        initCameraParameters();
-        initDataFile();
+		initCameraParameters();
+		initDataFile();
 		continuousCapture();
 	}
-	
+
 	public void onStartDistClick(View v)
 	{
 		//Snap a stream of photos based on distance between snaps
@@ -323,7 +336,7 @@ public class MainActivity extends Activity
 		FIRST_DISTANCE = true;
 		TOTAL_COUNT = 0;
 		CAMERA_READY = true;
-		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssS").format(new Date());
 		storeDir = "DistPics_" + timeStamp;
 		try {
 			EditText readDist = (EditText) findViewById(R.id.editDist);
@@ -337,17 +350,17 @@ public class MainActivity extends Activity
 		}
 		Toast.makeText(getBaseContext(), "Distance Mode", Toast.LENGTH_SHORT).show();
 
-        initCameraParameters();
-        initDataFile();
+		initCameraParameters();
+		initDataFile();
 		continuousCapture();
 	}
-	
+
 	public void continuousCapture()
 	{
 		if (TOTAL_COUNT >= TOTAL_FRAMES) {
 			return; // Done
 		}
-		
+
 		long prevTime = System.currentTimeMillis();	// Time at loop start
 		long currentTime;
 		if (DISTANCE) {	//Snap a series of photos based on distance traveled
@@ -357,7 +370,7 @@ public class MainActivity extends Activity
 				CAMERA_READY = false;
 				mCamera.takePicture( this, null, null, this);
 			}
-		} else {	// DISTANCE == false, Snap a series of photos based on time passed								
+		} else {	// DISTANCE == false, Snap a series of photos based on time passed
 			while(true) {
 				currentTime = System.currentTimeMillis();
 				if (((currentTime - prevTime) > TIME_TO_TRAVEL) && CAMERA_READY) {	// Not the right way to do this
@@ -365,18 +378,18 @@ public class MainActivity extends Activity
 					CAMERA_READY = false;
 					mCamera.takePicture( this, null, null, this);
 					break;
-				}						
+				}
 			}
 		}
 	}
-	
+
 	//Camera Callback Methods
 	@Override
 	public void onShutter()
 	{
 
 	}
-	
+
 	@Override
 	public void onPictureTaken(byte[] data, Camera camera)
 	{
@@ -387,27 +400,27 @@ public class MainActivity extends Activity
 		//Store the picture
 		File pictureFile = getOutputMediaFile(MEDIA_TYPE_IMAGE, this);
 		if (pictureFile == null){
-            Log.d(TAG, "Error creating media file, check storage permissions.");
-            return;
-        }
+			Log.d(TAG, "Error creating media file, check storage permissions.");
+			return;
+		}
 
-        try {
-            FileOutputStream fos = new FileOutputStream(pictureFile);
-            fos.write(data);
-            fos.close();
-        } catch (FileNotFoundException e) {
-            Log.d(TAG, "File not found: " + e.getMessage());
-        } catch (IOException e) {
-            Log.d(TAG, "Error accessing file: " + e.getMessage());
-        }
+		try {
+			FileOutputStream fos = new FileOutputStream(pictureFile);
+			fos.write(data);
+			fos.close();
+		} catch (FileNotFoundException e) {
+			Log.d(TAG, "File not found: " + e.getMessage());
+		} catch (IOException e) {
+			Log.d(TAG, "Error accessing file: " + e.getMessage());
+		}
 
 		// Add other sensor information to image
 		addSensorDataToImg(pictureFile); // Temp doing both .txt & .csv in case one doesn't work. Replace with recordDataFile by Gregg
 
-        recordCameraParameters(); // update the camera parameters saved in global variables
-        recordDataFile(pictureFile); // add a line item to the CSV data file for this image
+		recordCameraParameters(); // update the camera parameters saved in global variables
+		recordDataFile(pictureFile); // add a line item to the CSV data file for this image
 
-        updateCameraParameters(pictureFile); // evaluate the image just take and correct settings for next image
+		updateCameraParameters(pictureFile); // evaluate the image just take and correct settings for next image
 
 		//Must restart preview
 		camera.startPreview();
@@ -417,7 +430,7 @@ public class MainActivity extends Activity
 			continuousCapture();
 		}
 	}
-	
+
 	//Surface Callback Methods
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
@@ -427,14 +440,14 @@ public class MainActivity extends Activity
 		Camera.Size prevselected = prevsizes.get(0);
 		params.setPreviewSize(prevselected.width, prevselected.height);
 
-		params.setPictureSize(3264, 2448);		// Hard-coded image size to Galaxy S3		
+		params.setPictureSize(3264, 2448);		// Hard-coded image size to Galaxy S3
 		params.setJpegQuality(100);
 
-		mCamera.setParameters(params);		
-        mCamera.setDisplayOrientation(90);
+		mCamera.setParameters(params);
+		mCamera.setDisplayOrientation(90);
 		mCamera.startPreview();
 	}
-	
+
 	@Override
 	public void surfaceCreated(SurfaceHolder holder)
 	{
@@ -447,7 +460,7 @@ public class MainActivity extends Activity
 			e.printStackTrace();
 		}
 	}
-	
+
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder)
 	{
@@ -489,41 +502,41 @@ public class MainActivity extends Activity
 		// Variable declaration & initialization
 		String fileName = "File: " + pictureFile.getName() + ';';
 		String filePath = pictureFile.getAbsolutePath();
-		CharSequence azimuthValue = mAzimuthView.getText();;
+		CharSequence azimuthValue = mAzimuthView.getText();
 		CharSequence pitchValue = mPitchView.getText();
 		CharSequence rollValue = mRollView.getText();
 
-        String timeStamp = "Time: " + new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date()) + ';';
-        String prevIsoString = "Prev Iso Value: " + prevIsoValue + ';';
-        String prevExpString = "Prev Exp Comp Value: " + prevExposureCompensationValue + ';';
+		String timeStamp = "Time: " + new SimpleDateFormat("yyyyMMdd_HHmmssS").format(new Date()) + ';';
+		String prevIsoString = "Prev Iso Value: " + prevIsoValue + ';';
+		String prevExpString = "Prev Exp Comp Value: " + prevExposureCompensationValue + ';';
 
-        String currTimeString = "Current Time: -1;";
-        String altString = "Altitude: -1;";
-        String latString = "Latitude: -1;";
-        String lonString = "Longitude: -1;";
-        String accuracyString = "Accuracy: -1;";
-        String speedString = "Speed: -1;";
-        String providerString = "Provider: NA;";
+		String currTimeString = "Current Time: NA;";
+		String altString = "Altitude: NA;";
+		String latString = "Latitude: NA;";
+		String lonString = "Longitude: NA;";
+		String accuracyString = "Accuracy: NA;";
+		String speedString = "Speed: NA;";
+		String providerString = "Provider: NA;";
 
 		if(currentLocation != null) {
 			if (currentLocation.hasAccuracy()) {
-                accuracyString = "Accuracy: " + currentLocation.getAccuracy() + ';';
-            }
-
-			if (currentLocation.hasSpeed()) {
-                speedString = "Speed: " + currentLocation.getSpeed() + ';';
+				accuracyString = "Accuracy: " + currentLocation.getAccuracy() + ';';
 			}
 
-            if (currentLocation.hasAltitude()) {
-                altString = "Altitude: " + currentLocation.getAltitude() + ';';
-            }
+			if (currentLocation.hasSpeed()) {
+				speedString = "Speed: " + currentLocation.getSpeed() + ';';
+			}
 
-            currTimeString = "Current Time: " + currentLocation.getTime() + ';';
-            latString = "Latitude: " + currentLocation.getLatitude() + ';';
-            lonString = "Longitude: " + currentLocation.getLongitude() + ';';
-            providerString = "Provider: " + currentLocation.getProvider() + ';';
+			if (currentLocation.hasAltitude()) {
+				altString = "Altitude: " + currentLocation.getAltitude() + ';';
+			}
 
-        }
+			currTimeString = "Current Time: " + currentLocation.getTime() + ';';
+			latString = "Latitude: " + currentLocation.getLatitude() + ';';
+			lonString = "Longitude: " + currentLocation.getLongitude() + ';';
+			providerString = "Provider: " + currentLocation.getProvider() + ';';
+
+		}
 
 		// Combine sensor data into single string
 		/*
@@ -531,29 +544,41 @@ public class MainActivity extends Activity
 				"; Roll: " + rollValue + ';';
 		*/
 		// /*
-		String azimuthString = "Azimuth: " + azimuthValue + ';';
-		String pitchString = "Pitch: " + pitchValue + ';';
-		String rollString = "Roll: " + rollValue + ';';
+		String azimuthString = "Screen Azimuth: " + azimuthValue + ';';
+		String pitchString = "Screen Pitch: " + pitchValue + ';';
+		String rollString = "Screen Roll: " + rollValue + ';';
+
+		String accAzimuthString = "Accelerometer Azimuth: " + accAzimuth + ';';
+		String accPitchString = "Accelerometer Pitch: " + accPitch + ';';
+		String accRollString = "Accelerometer Roll: " + accRoll + ';';
+
+		String gyroAzimuthString = "Gyro Azimuth: " + gyroAzimuth + ';';
+		String gyroPitchString = "Gyro Pitch: " + gyroPitch + ';';
+		String gyroRollString = "Gyro Roll: " + gyroRoll + ';';
+
+		String fusedAzimuthString = "Fused Azimuth: " + fusedAzimuth + ';';
+		String fusedPitchString = "Fused Pitch: " + fusedPitch + ';';
+		String fusedRollString = "Fused Roll: " + fusedRoll + ';';
+
+
+
 		// */
 
 		/*
 		// Write sensor data to EXIF
 		try {
 			ExifInterface exif = new ExifInterface(filePath);
-
 			// Read all GPS attributes
 			double altitude = currentLocation.getAltitude();
 			double latitude = currentLocation.getLatitude();
 			double longitude = currentLocation.getLongitude();
 			double time = currentLocation.getTime() / 1000;
-
 			// Apparently exifInterface will not read the GPS tags in EXIF correctly & instead
 			// returns null values
 			String gpsAlt = String.valueOf(altitude);
 			String gpsLat = String.valueOf(latitude);
 			String gpsLong = String.valueOf(longitude);
 			String gpsTimeStamp = String.valueOf(time);
-
 			/*
 			String gpsLatRef = exif.getAttribute(exif.TAG_GPS_LATITUDE_REF);
 			String gpsLat = exif.getAttribute(exif.TAG_GPS_LATITUDE);
@@ -563,7 +588,6 @@ public class MainActivity extends Activity
 			String gpsAlt = exif.getAttribute(exif.TAG_GPS_ALTITUDE);
 			String gpsTimeStamp = exif.getAttribute(exif.TAG_GPS_TIMESTAMP);
 			String gpsDateStamp = exif.getAttribute(exif.TAG_GPS_DATESTAMP);
-
 			// Set all GPS attributes
 			// exif.setAttribute("GPS Latitude Ref",gpsLatRef);
 			// exif.setAttribute(exif.TAG_GPS_LATITUDE,gpsLat);
@@ -573,13 +597,10 @@ public class MainActivity extends Activity
 			// exif.setAttribute(exif.TAG_GPS_ALTITUDE,gpsAlt);
 			// exif.setAttribute(exif.TAG_GPS_TIMESTAMP,gpsTimeStamp);
 			// exif.setAttribute("GPS Date Stamp",gpsDateStamp);
-
 			// Set azimuth, pitch, & roll
 			// exif.setAttribute("UserComment", customEXIF);
-
 			// Save all attributes
 			// exif.saveAttributes();
-
 		} catch (IOException e) {
 			Log.d(TAG, "Error accessing file: " + filePath + " " + e.getMessage());
 		}
@@ -588,36 +609,54 @@ public class MainActivity extends Activity
 		// /*
 		// Write data to text file
 		writeToFile(fileName);
-        writeToFile("\r\n");
-        writeToFile(timeStamp);
-        writeToFile("\r\n");
-        writeToFile(prevIsoString);
-        writeToFile("\r\n");
-        writeToFile(prevExpString);
+		writeToFile("\r\n");
+		writeToFile(timeStamp);
+		writeToFile("\r\n");
+		writeToFile(prevIsoString);
+		writeToFile("\r\n");
+		writeToFile(prevExpString);
 		writeToFile("\r\n");
 		writeToFile(azimuthString);
 		writeToFile("\r\n");
 		writeToFile(pitchString);
 		writeToFile("\r\n");
 		writeToFile(rollString);
-        writeToFile("\r\n");
-        writeToFile(currTimeString);
-        writeToFile("\r\n");
-        writeToFile(altString);
-        writeToFile("\r\n");
-        writeToFile(latString);
-        writeToFile("\r\n");
-        writeToFile(lonString);
-        writeToFile("\r\n");
-        writeToFile(accuracyString);
-        writeToFile("\r\n");
-        writeToFile(speedString);
-        writeToFile("\r\n");
-        writeToFile(providerString);
+		writeToFile("\r\n");
+		writeToFile(currTimeString);
+		writeToFile("\r\n");
+		writeToFile(altString);
+		writeToFile("\r\n");
+		writeToFile(latString);
+		writeToFile("\r\n");
+		writeToFile(lonString);
+		writeToFile("\r\n");
+		writeToFile(accuracyString);
+		writeToFile("\r\n");
+		writeToFile(speedString);
+		writeToFile("\r\n");
+		writeToFile(providerString);
+		writeToFile("\r\n");
+		writeToFile(accAzimuthString);
+		writeToFile("\r\n");
+		writeToFile(accPitchString);
+		writeToFile("\r\n");
+		writeToFile(accRollString);
+		writeToFile("\r\n");
+		writeToFile(gyroAzimuthString);
+		writeToFile("\r\n");
+		writeToFile(gyroPitchString);
+		writeToFile("\r\n");
+		writeToFile(gyroRollString);
+		writeToFile("\r\n");
+		writeToFile(fusedAzimuthString);
+		writeToFile("\r\n");
+		writeToFile(fusedPitchString);
+		writeToFile("\r\n");
+		writeToFile(fusedRollString);
 		writeToFile("\r\n");
 		writeToFile("\r\n");
 
-        // */
+		// */
 	}
 
 	private void writeToFile(String data) {
@@ -653,7 +692,6 @@ public class MainActivity extends Activity
 		try {
 			/*
 			FileOutputStream fos = openFileOutput(sensorDataFile.getAbsolutePath(),getApplicationContext().MODE_APPEND);
-
 			fos.write(data.getBytes());
 			fos.close();
 			*/
@@ -674,128 +712,128 @@ public class MainActivity extends Activity
 
 	// Create a File for saving an image or video
 	private static File getOutputMediaFile(int type, Context context){
-	    // To be safe, you should check that the SDCard is mounted
-	    // using Environment.getExternalStorageState() before doing this.
+		// To be safe, you should check that the SDCard is mounted
+		// using Environment.getExternalStorageState() before doing this.
 
-	    File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
-	              Environment.DIRECTORY_PICTURES), storeDir);
-	    // This location works best if you want the created images to be shared
-	    // between applications and persist after your app has been uninstalled.
+		File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
+				Environment.DIRECTORY_PICTURES), storeDir);
+		// This location works best if you want the created images to be shared
+		// between applications and persist after your app has been uninstalled.
 
-	    // Create the storage directory if it does not exist
-	    if (! mediaStorageDir.exists()){
-	        if (! mediaStorageDir.mkdirs()){
-	        	Toast.makeText(context, "Couldn't create dir", Toast.LENGTH_SHORT).show();
-	            Log.d("FlightCapture", "failed to create directory");
-	            return null;
-	        }
-	    }
+		// Create the storage directory if it does not exist
+		if (! mediaStorageDir.exists()){
+			if (! mediaStorageDir.mkdirs()){
+				Toast.makeText(context, "Couldn't create dir", Toast.LENGTH_SHORT).show();
+				Log.d("FlightCapture", "failed to create directory");
+				return null;
+			}
+		}
 
-	    // Create a media file name
-	    String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-	    File mediaFile;
-	    if (type == MEDIA_TYPE_IMAGE){
-	        mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-	        "IMG_"+ timeStamp + ".jpg");
-	    } else if(type == MEDIA_TYPE_VIDEO) {
-	        mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-	        "VID_"+ timeStamp + ".mp4");
-	    } else {
-	        return null;
-	    }
-	    return mediaFile;
-	}	
-	
+		// Create a media file name
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssS").format(new Date());
+		File mediaFile;
+		if (type == MEDIA_TYPE_IMAGE){
+			mediaFile = new File(mediaStorageDir.getPath() + File.separator +
+					"IMG_"+ timeStamp + ".jpg");
+		} else if(type == MEDIA_TYPE_VIDEO) {
+			mediaFile = new File(mediaStorageDir.getPath() + File.separator +
+					"VID_"+ timeStamp + ".mp4");
+		} else {
+			return null;
+		}
+		return mediaFile;
+	}
+
 	protected void safeLocationStart() {
-	    // This verification should be done during onStart() because the system calls
-	    // this method when the user returns to the activity, which ensures the desired
-	    // location provider is enabled each time the activity resumes from the stopped state.
-	    final boolean gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+		// This verification should be done during onStart() because the system calls
+		// this method when the user returns to the activity, which ensures the desired
+		// location provider is enabled each time the activity resumes from the stopped state.
+		final boolean gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
 
-	    if (!gpsEnabled) {
-	        // Build an alert dialog here that requests that the user enable
-	        // the location services, then when the user clicks the "OK" button,
-	        // call enableLocationSettings()
-	    	AlertDialog.Builder builder = new AlertDialog.Builder(this);
-	    	builder.setTitle("Location Manager");
-	    	builder.setMessage("Turn on the GPS?");
-	    	builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+		if (!gpsEnabled) {
+			// Build an alert dialog here that requests that the user enable
+			// the location services, then when the user clicks the "OK" button,
+			// call enableLocationSettings()
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setTitle("Location Manager");
+			builder.setMessage("Turn on the GPS?");
+			builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface dialog, int which) {
 					//No location service, no Activity
 					enableLocationSettings();			// sends user to Android Settings to turn on GPS
 				}
-	    	});
-	    	builder.create().show();	    	
-	    }
-	    
-	    //Get a cached location, if it exists
-	    currentLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+			});
+			builder.create().show();
+		}
 
-	    //Register for updates
-	    int minTime = TIME_BETWEEN_GPS;
-	    float minDist = 0;
-	    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTime, minDist, listener);
+		//Get a cached location, if it exists
+		currentLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+
+		//Register for updates
+		int minTime = TIME_BETWEEN_GPS;
+		float minDist = 0;
+		locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTime, minDist, listener);
 	}
-	    
+
 	private final LocationListener listener = new LocationListener() {
-	    @Override
-	    public void onLocationChanged(Location location) {
-	        // A new location update is received.  Do something useful with it.
-	    	if (isBetterLocation(location, currentLocation))
-	    		currentLocation = location;
-	    	if (currentLocation == null)
-	    		return;		//Skip routine if location is invalid
-	    	if (previousLocation == null)
-	    		previousLocation = currentLocation;			// Prevents a capture if null
+		@Override
+		public void onLocationChanged(Location location) {
+			// A new location update is received.  Do something useful with it.
+			if (isBetterLocation(location, currentLocation))
+				currentLocation = location;
+			if (currentLocation == null)
+				return;		//Skip routine if location is invalid
+			if (previousLocation == null)
+				previousLocation = currentLocation;			// Prevents a capture if null
 
-	    	float distance = 0;
-	    	if (DISTANCE && STREAM_CAPTURE) {
+			float distance = 0;
+			if (DISTANCE && STREAM_CAPTURE) {
 
-	    		if (FIRST_DISTANCE) {
-		    		Toast.makeText(getBaseContext(), "First!", Toast.LENGTH_SHORT).show();
+				if (FIRST_DISTANCE) {
+					Toast.makeText(getBaseContext(), "First!", Toast.LENGTH_SHORT).show();
 
-		    		previousLocation = currentLocation;
-		    		FIRST_DISTANCE = false;
-		    		continuousCapture();
-		    	} else {	// Makes sure first distance has succeeded
+					previousLocation = currentLocation;
+					FIRST_DISTANCE = false;
+					continuousCapture();
+				} else {	// Makes sure first distance has succeeded
 
-    				distance = currentLocation.distanceTo(previousLocation);
+					distance = currentLocation.distanceTo(previousLocation);
 
-    	    		if (distance > DISTANCE_TO_TRAVEL) {	
-    	    			String temp = "Accuracy = " + Float.toString(currentLocation.getAccuracy());
-    		    		Toast.makeText(getBaseContext(), temp, Toast.LENGTH_SHORT).show();
-    		    		previousLocation = currentLocation;
-    		    		continuousCapture();
-    		    	} 
-    			}
+					if (distance > DISTANCE_TO_TRAVEL) {
+						String temp = "Accuracy = " + Float.toString(currentLocation.getAccuracy());
+						Toast.makeText(getBaseContext(), temp, Toast.LENGTH_SHORT).show();
+						previousLocation = currentLocation;
+						continuousCapture();
+					}
+				}
 
-	    	}		    		
-	    }
-	    
-	    @Override
-	    public void onProviderDisabled(String provider){}
-	    
-	    @Override
-	    public void onProviderEnabled(String provider) {}
-	    
-	    @Override
-	    public void onStatusChanged(String provider, int status, Bundle extras) {}
+			}
+		}
+
+		@Override
+		public void onProviderDisabled(String provider){}
+
+		@Override
+		public void onProviderEnabled(String provider) {}
+
+		@Override
+		public void onStatusChanged(String provider, int status, Bundle extras) {}
 	};
 
 
 	private void enableLocationSettings() {
-	    Intent settingsIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-	    startActivity(settingsIntent);
-	}		
-	
+		Intent settingsIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+		startActivity(settingsIntent);
+	}
+
 	// Check if this device has a camera
 	private boolean checkCameraHardware(Context context) {
-	    if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)){	        
-	        return true;	// this device has a camera
-	    } else {	        
-	        return false;	// no camera on this device
-	    }
+		if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)){
+			return true;	// this device has a camera
+		} else {
+			return false;	// no camera on this device
+		}
 	}
 
 
@@ -806,54 +844,54 @@ public class MainActivity extends Activity
 //	    @param currentBestLocation  The current Location fix, to which you want to compare the new one
 
 	protected boolean isBetterLocation(Location location, Location currentBestLocation) {
-	    if (currentBestLocation == null) {
-	        // A new location is always better than no location
-	        return true;
-	    }
+		if (currentBestLocation == null) {
+			// A new location is always better than no location
+			return true;
+		}
 
-	    // Check whether the new location fix is newer or older
-	    long timeDelta = location.getTime() - currentBestLocation.getTime();
-	    boolean isSignificantlyNewer = timeDelta > TWO_MINUTES;
-	    boolean isSignificantlyOlder = timeDelta < -TWO_MINUTES;
-	    boolean isNewer = timeDelta > 0;
+		// Check whether the new location fix is newer or older
+		long timeDelta = location.getTime() - currentBestLocation.getTime();
+		boolean isSignificantlyNewer = timeDelta > TWO_MINUTES;
+		boolean isSignificantlyOlder = timeDelta < -TWO_MINUTES;
+		boolean isNewer = timeDelta > 0;
 
-	    // If it's been more than two minutes since the current location, use the new location
-	    // because the user has likely moved
-	    if (isSignificantlyNewer) {
-	        return true;
-	    // If the new location is more than two minutes older, it must be worse
-	    } else if (isSignificantlyOlder) {
-	        return false;
-	    }
+		// If it's been more than two minutes since the current location, use the new location
+		// because the user has likely moved
+		if (isSignificantlyNewer) {
+			return true;
+			// If the new location is more than two minutes older, it must be worse
+		} else if (isSignificantlyOlder) {
+			return false;
+		}
 
-	    // Check whether the new location fix is more or less accurate
-	    int accuracyDelta = (int) (location.getAccuracy() - currentBestLocation.getAccuracy());
-	    boolean isLessAccurate = accuracyDelta > DISTANCE_TO_TRAVEL;
-	    boolean isMoreAccurate = accuracyDelta < 0;
-	    boolean isSignificantlyLessAccurate = accuracyDelta > 200;
+		// Check whether the new location fix is more or less accurate
+		int accuracyDelta = (int) (location.getAccuracy() - currentBestLocation.getAccuracy());
+		boolean isLessAccurate = accuracyDelta > DISTANCE_TO_TRAVEL;
+		boolean isMoreAccurate = accuracyDelta < 0;
+		boolean isSignificantlyLessAccurate = accuracyDelta > 200;
 
-	    // Check if the old and new location are from the same provider
-	    boolean isFromSameProvider = isSameProvider(location.getProvider(),
-	            currentBestLocation.getProvider());
+		// Check if the old and new location are from the same provider
+		boolean isFromSameProvider = isSameProvider(location.getProvider(),
+				currentBestLocation.getProvider());
 
-	    // Determine location quality using a combination of timeliness and accuracy
-	    if (isMoreAccurate) {
-	        return true;
-	    } else if (isNewer && !isLessAccurate) {
-	        return true;
-	    } else if (isNewer && !isSignificantlyLessAccurate && isFromSameProvider) {
-	        return true;
-	    }
-	    //return false;
-        return true;
+		// Determine location quality using a combination of timeliness and accuracy
+		if (isMoreAccurate) {
+			return true;
+		} else if (isNewer && !isLessAccurate) {
+			return true;
+		} else if (isNewer && !isSignificantlyLessAccurate && isFromSameProvider) {
+			return true;
+		}
+		//return false;
+		return true;
 	}
 
 	// Checks whether two providers are the same
 	private boolean isSameProvider(String provider1, String provider2) {
-	    if (provider1 == null) {
-	      return provider2 == null;
-	    }
-	    return provider1.equals(provider2);
+		if (provider1 == null) {
+			return provider2 == null;
+		}
+		return provider1.equals(provider2);
 	}
 
 	// ADDED SENSOR CODE
@@ -1111,21 +1149,33 @@ public class MainActivity extends Activity
 	}
 
 	public void updateOreintationDisplay() {
+		accAzimuth = d.format(accMagOrientation[0] * 180/Math.PI);
+		accPitch = d.format(accMagOrientation[1] * 180/Math.PI);
+		accRoll = d.format(accMagOrientation[2] * 180/Math.PI);
+
+		gyroAzimuth = d.format(gyroOrientation[0] * 180/Math.PI);
+		gyroPitch = d.format(gyroOrientation[1] * 180/Math.PI);
+		gyroRoll = d.format(gyroOrientation[2] * 180/Math.PI);
+
+		fusedAzimuth = d.format(fusedOrientation[0] * 180/Math.PI);
+		fusedPitch = d.format(fusedOrientation[1] * 180/Math.PI);
+		fusedRoll = d.format(fusedOrientation[2] * 180/Math.PI);
+
 		switch(radioSelection) {
 			case 0:
-				mAzimuthView.setText(d.format(accMagOrientation[0] * 180/Math.PI));
-				mPitchView.setText(d.format(accMagOrientation[1] * 180/Math.PI));
-				mRollView.setText(d.format(accMagOrientation[2] * 180/Math.PI));
+				mAzimuthView.setText(accAzimuth);
+				mPitchView.setText(accPitch);
+				mRollView.setText(accRoll);
 				break;
 			case 1:
-				mAzimuthView.setText(d.format(gyroOrientation[0] * 180/Math.PI));
-				mPitchView.setText(d.format(gyroOrientation[1] * 180/Math.PI));
-				mRollView.setText(d.format(gyroOrientation[2] * 180/Math.PI));
+				mAzimuthView.setText(gyroAzimuth);
+				mPitchView.setText(gyroPitch);
+				mRollView.setText(gyroRoll);
 				break;
 			case 2:
-				mAzimuthView.setText(d.format(fusedOrientation[0] * 180/Math.PI));
-				mPitchView.setText(d.format(fusedOrientation[1] * 180/Math.PI));
-				mRollView.setText(d.format(fusedOrientation[2] * 180/Math.PI));
+				mAzimuthView.setText(fusedAzimuth);
+				mPitchView.setText(fusedPitch);
+				mRollView.setText(fusedRoll);
 				break;
 		}
 	}
@@ -1138,163 +1188,187 @@ public class MainActivity extends Activity
 	// END ADDED SENSOR CODE
 
 
-    /* GREGG'S MERGE */
-    public int prevExposureCompensationValue;
-    public String prevIsoValue;
-    public int maxExposureCompensationValue;
-    public int minExposureCompensationValue;
-    public int testBit = 0; // used to test camera controls, used to alternate ISO settings
-    public File dataFile;
+	/* GREGG'S MERGE */
+	public double prevExposureCompensationValue;
+	public String prevIsoValue;
+	public int maxExposureCompensationValue;
+	public int minExposureCompensationValue;
+	public int testBit = 0; // used to test camera controls, used to alternate ISO settings
+	public File dataFile;
 
 
-    public void initCameraParameters()
-    {//Initialize Camera Settings (should be called before starting capturing sequence, before first photo) [Note: I believe that the preview should be started first]
+	public void initCameraParameters()
+	{//Initialize Camera Settings (should be called before starting capturing sequence, before first photo) [Note: I believe that the preview should be started first]
 
-        //** INITIALIZE CAMERA PARAMETERS **//
+		//** INITIALIZE CAMERA PARAMETERS **//
 
-        //Retrieve current camera parameter settings
-        Camera.Parameters params = mCamera.getParameters(); // Request Current Paramaters
+		//Retrieve current camera parameter settings
+		Camera.Parameters params = mCamera.getParameters(); // Request Current Paramaters
 
-        // Edit camera parameter settings
-        // params.setAutoExposureLock(true); // Lock Auto Exposure so it can be controlled per snap, CHECK MIN VERSION
-        // params.setAutoWhiteBalanceLock(true); // Lock AWB so we can post process the images, CHECK MIN VERSION
-        // params.setWhiteBalance("no adjustment"); //this string value could we wrong, DECIDED TO USE AUTO WHITE BALANCE
-        // Set GPS Altitude: 7/26/2015, waiting for KML group to decide GPS/ALT implementation. Remember to look at current addGpsToImg() etc. implementation
-        params.setFocusMode("FOCUS_MOD_EDOF"); // set to continuous focus mode
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        storeDir = "TimePics_" + timeStamp;// set directory to save file (if external remember to put in manifest file)
-        //params.setPictureFormat(256); //256 represents JPEG format, IS THIS NECESSARY?
+		// Edit camera parameter settings
+		// params.setAutoExposureLock(true); // Lock Auto Exposure so it can be controlled per snap, CHECK MIN VERSION
+		// params.setAutoWhiteBalanceLock(true); // Lock AWB so we can post process the images, CHECK MIN VERSION
+		// params.setWhiteBalance("no adjustment"); //this string value could we wrong, DECIDED TO USE AUTO WHITE BALANCE
+		// Set GPS Altitude: 7/26/2015, waiting for KML group to decide GPS/ALT implementation. Remember to look at current addGpsToImg() etc. implementation
+		params.setFocusMode("FOCUS_MOD_EDOF"); // set to continuous focus mode
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssS").format(new Date());
+		storeDir = "TimePics_" + timeStamp;// set directory to save file (if external remember to put in manifest file)
+		//params.setPictureFormat(256); //256 represents JPEG format, IS THIS NECESSARY?
 
-        maxExposureCompensationValue = params.getMaxExposureCompensation();
-        minExposureCompensationValue = params.getMinExposureCompensation();
+		maxExposureCompensationValue = params.getMaxExposureCompensation();
+		minExposureCompensationValue = params.getMinExposureCompensation();
 
-        recordCameraParameters();
+		recordCameraParameters();
 
-        //Set camera settings to modified values
-        //** mCamera.setParameters(params); 8/8/15: REMOVED BECUASE IT CRASHED THE APP!
-        //Toast.makeText(getBaseContext(), "Camera Settings Initialized", Toast.LENGTH_SHORT).show();
-    }
+		//Set camera settings to modified values
+		//** mCamera.setParameters(params); 8/8/15: REMOVED BECUASE IT CRASHED THE APP!
+		//Toast.makeText(getBaseContext(), "Camera Settings Initialized", Toast.LENGTH_SHORT).show();
+	}
 
-    public void initDataFile()
-    {   // NOTE: Column titles aren't getting recorded, not sure why
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES), storeDir);
-        dataFile = new File(mediaStorageDir.getPath() + File.separator +
-                "DATA_"+ timeStamp + ".csv");
-        String titleString;   //"Time Stamp," + colTitles + "\n";
-		titleString = "FILENAME,TIME,ISO,EXPCOMP,AZIMUTH,PITCH,ROLL,GPS TIME,ALTITUDE,LATITUDE,LONGITUDE,GPS ACCURACY,SPEED,PROVIDER,/r/n";
+	public void initDataFile()
+	{   // NOTE: Column titles aren't getting recorded, not sure why
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssS").format(new Date());
+		File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
+				Environment.DIRECTORY_PICTURES), storeDir);
+		dataFile = new File(mediaStorageDir.getPath() + File.separator +
+				"DATA_"+ timeStamp + ".csv");
+		String titleString;   //"Time Stamp," + colTitles + "\n";
+		titleString = "FILENAME,TIME,ISO,EXPCOMP,SCREEN AZIMUTH,SCREEN PITCH,SCREEN ROLL,GPS TIME,ALTITUDE,LATITUDE,LONGITUDE,GPS ACCURACY,SPEED,PROVIDER,ACC AZIMUTH,ACC PITCH,ACC ROLL,GYRO AZIMUTH,GYRO PITCH,GYRO ROLL,FUSED AZIMUTH,FUSED PITCH,FUSED ROLL,/r/n";
 		try {
-            FileOutputStream fos = new FileOutputStream(dataFile, true);
-            fos.write(titleString.getBytes());
-            fos.close();
-        } catch (FileNotFoundException e) {
-            Log.d(TAG, "File not found: " + e.getMessage());
-        } catch (IOException e) {
-            Log.d(TAG, "Error accessing file: " + e.getMessage());
-        }
+			FileOutputStream fos = new FileOutputStream(dataFile, true);
+			fos.write(titleString.getBytes());
+			fos.close();
+		} catch (FileNotFoundException e) {
+			Log.d(TAG, "File not found: " + e.getMessage());
+		} catch (IOException e) {
+			Log.d(TAG, "Error accessing file: " + e.getMessage());
+		}
 
-    }
+	}
 
-    public void recordDataFile(File pictureFile)
-    {   // Records a data file to the same directory as the pictures
-        // FINISH BY ADDING INPUTS FOR RECORDING!!!!
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String timeString = timeStamp + "," ;
+	public void recordDataFile(File pictureFile)
+	{   // Records a data file to the same directory as the pictures
+		// FINISH BY ADDING INPUTS FOR RECORDING!!!!
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmssS").format(new Date());
+		String timeString = timeStamp + "," ;
 
-        CharSequence azimuthValue = mAzimuthView.getText();;
-        CharSequence pitchValue = mPitchView.getText();
-        CharSequence rollValue = mRollView.getText();
+		CharSequence azimuthValue = mAzimuthView.getText();;
+		CharSequence pitchValue = mPitchView.getText();
+		CharSequence rollValue = mRollView.getText();
 
-        if (currentLocation == null){
-            return;
-        }
+		if (currentLocation == null){
+			return;
+		}
 
-        double currentAltitude = currentLocation.getAltitude();
-        double currentLatitude = currentLocation.getLatitude();
+		double currentAltitude = currentLocation.getAltitude();
+		double currentLatitude = currentLocation.getLatitude();
 		double currentLongitude = currentLocation.getLongitude();
 		double currentTimestamp = currentLocation.getTime();
 		double currentGPSaccuracy = currentLocation.getAccuracy();
-        //recordData(prevIsoValue + "," + prevExposureCompensationValue);
-        String providerString = currentLocation.getProvider();
-        double speed = currentLocation.getSpeed();
+		//recordData(prevIsoValue + "," + prevExposureCompensationValue);
+		String providerString = currentLocation.getProvider();
+		double speed = currentLocation.getSpeed();
 
-        String dataString = pictureFile + "," +
-                            timeString + "," +
-                            prevIsoValue + "," +
-                            prevExposureCompensationValue + "," +
-                            azimuthValue + "," +
-                            pitchValue + "," +
-                            rollValue + "," +
-                            currentTimestamp + "," +
-                            currentAltitude + "," +
-                            currentLatitude + "," +
-                            currentLongitude + "," +
-                            currentGPSaccuracy + "," +
-                            speed + "," +
-                            providerString + "," + "/r/n";
-        try {
-            FileOutputStream fos = new FileOutputStream(dataFile, true);
-            fos.write(timeString.getBytes());
-            fos.write(dataString.getBytes());
-            fos.write(("\n").getBytes());
-            fos.close();
-        } catch (FileNotFoundException e) {
-            Log.d(TAG, "File not found: " + e.getMessage());
-        } catch (IOException e) {
-            Log.d(TAG, "Error accessing file: " + e.getMessage());
-        }
+		/*accAzimuth = d.format(accMagOrientation[0] * 180/Math.PI);
+		accPitch = d.format(accMagOrientation[1] * 180/Math.PI);
+		accRoll = d.format(accMagOrientation[2] * 180/Math.PI);
 
-    }
+		gyroAzimuth = d.format(gyroOrientation[0] * 180/Math.PI);
+		gyroPitch = d.format(gyroOrientation[1] * 180/Math.PI);
+		gyroRoll = d.format(gyroOrientation[2] * 180/Math.PI);
 
-    public void recordCameraParameters()
-    { // Called immediately after the photo is taken to record current parameters (b/ potentially in constant flux during preview)
-        Camera.Parameters params = mCamera.getParameters();
-        prevExposureCompensationValue = params.getExposureCompensation();
-        prevIsoValue = params.get("iso");
-        //recordData(prevIsoValue + "," + prevExposureCompensationValue);
-        //Toast.makeText(getBaseContext(), prevExposureCompensationValue, Toast.LENGTH_SHORT).show(); // debugging purposes
-        //Toast.makeText(getBaseContext(), prevIsoValue, Toast.LENGTH_SHORT).show(); // debugging purposes
-    }
+		fusedAzimuth = d.format(fusedOrientation[0] * 180/Math.PI);
+		fusedPitch = d.format(fusedOrientation[1] * 180/Math.PI);
+		fusedRoll = d.format(fusedOrientation[2] * 180/Math.PI);*/
 
-    public void updateCameraParameters(File pictureFile)
-    {//Initialize Camera Settings (should be called before starting capturing sequence, before first photo)
-        evaluatePreviousImage(pictureFile); // should return new values for exposure comp and iso
+		String dataString = pictureFile + "," +
+				timeString + "," +
+				prevIsoValue + "," +
+				prevExposureCompensationValue + "," +
+				azimuthValue + "," +
+				pitchValue + "," +
+				rollValue + "," +
+				currentTimestamp + "," +
+				currentAltitude + "," +
+				currentLatitude + "," +
+				currentLongitude + "," +
+				currentGPSaccuracy + "," +
+				speed + "," +
+				providerString + "," +
+				accAzimuth + "," +
+				accPitch + "," +
+				accRoll + "," +
+				gyroAzimuth + "," +
+				gyroPitch + "," +
+				gyroRoll + "," +
+				fusedAzimuth + "," +
+				fusedPitch + "," +
+				fusedRoll + "," +
+				"/r/n";
+		try {
+			FileOutputStream fos = new FileOutputStream(dataFile, true);
+			fos.write(timeString.getBytes());
+			fos.write(dataString.getBytes());
+			fos.write(("\n").getBytes());
+			fos.close();
+		} catch (FileNotFoundException e) {
+			Log.d(TAG, "File not found: " + e.getMessage());
+		} catch (IOException e) {
+			Log.d(TAG, "Error accessing file: " + e.getMessage());
+		}
 
-        Camera.Parameters params = mCamera.getParameters();
-        if (testBit > 0){
-            params.set("iso", "200");
-            // Toast.makeText(getBaseContext(), "ISO: 200", Toast.LENGTH_SHORT).show();
-            testBit = 0;
-        } else {
-            params.set("iso", "1600");
-            // Toast.makeText(getBaseContext(), "ISO: 1600", Toast.LENGTH_SHORT).show();
-            testBit = 1;
-            //testBit = 0;// for testing exp comp alone 8/8/15
-        }
-        if (prevExposureCompensationValue == minExposureCompensationValue) {
-            params.setExposureCompensation(maxExposureCompensationValue);
-            // Toast.makeText(getBaseContext(), ((maxExposureCompensationValue) + ""), Toast.LENGTH_SHORT).show();
-        } else {
-            params.setExposureCompensation(prevExposureCompensationValue - 1); // params.getExposureCompensationStep());
-            // Toast.makeText(getBaseContext(), ((prevExposureCompensationValue - 1) + ""), Toast.LENGTH_SHORT).show();
-        }
-        mCamera.setParameters(params);
+	}
 
-        //** Camera.Parameters testParams = mCamera.getParameters();
-        //** Toast.makeText(getBaseContext(), testParams.getExposureCompensation(), Toast.LENGTH_SHORT).show(); // debugging purposes
-        //** Toast.makeText(getBaseContext(), testParams.get("iso"), Toast.LENGTH_SHORT).show(); // debugging purposes
-    }
+	public void recordCameraParameters()
+	{ // Called immediately after the photo is taken to record current parameters (b/ potentially in constant flux during preview)
+		Camera.Parameters params = mCamera.getParameters();
+		prevExposureCompensationValue = params.getExposureCompensation();
+		prevIsoValue = params.get("iso");
+		//recordData(prevIsoValue + "," + prevExposureCompensationValue);
+		//Toast.makeText(getBaseContext(), prevExposureCompensationValue, Toast.LENGTH_SHORT).show(); // debugging purposes
+		//Toast.makeText(getBaseContext(), prevIsoValue, Toast.LENGTH_SHORT).show(); // debugging purposes
+	}
 
-    public void evaluatePreviousImage(File pictureFile)
-    { // Once the evaluation algorithms are settled to measure jitter, noise, and exposure we will implement here
+	public void updateCameraParameters(File pictureFile)
+	{//Initialize Camera Settings (should be called before starting capturing sequence, before first photo)
+		evaluatePreviousImage(pictureFile); // should return new values for exposure comp and iso
 
-        // open/find previous image, how to get previous image?
+		Camera.Parameters params = mCamera.getParameters();
+		params.set("iso", "200");
+		params.setExposureCompensation(minExposureCompensationValue);
+		/*if (testBit > 0){
+			params.set("iso", "200");
+			// Toast.makeText(getBaseContext(), "ISO: 200", Toast.LENGTH_SHORT).show();
+			testBit = 0;
+		} else {
+			params.set("iso", "1600");
+			// Toast.makeText(getBaseContext(), "ISO: 1600", Toast.LENGTH_SHORT).show();
+			testBit = 1;
+			//testBit = 0;// for testing exp comp alone 8/8/15
+		}
+		if (prevExposureCompensationValue == minExposureCompensationValue) {
+			params.setExposureCompensation(maxExposureCompensationValue);
+			// Toast.makeText(getBaseContext(), ((maxExposureCompensationValue) + ""), Toast.LENGTH_SHORT).show();
+		} else {
+			params.setExposureCompensation(prevExposureCompensationValue - 1); // params.getExposureCompensationStep());
+			// Toast.makeText(getBaseContext(), ((prevExposureCompensationValue - 1) + ""), Toast.LENGTH_SHORT).show();
+		}*/
+		mCamera.setParameters(params);
 
-        // Implement algorithm or call library here
+		//** Camera.Parameters testParams = mCamera.getParameters();
+		//** Toast.makeText(getBaseContext(), testParams.getExposureCompensation(), Toast.LENGTH_SHORT).show(); // debugging purposes
+		//** Toast.makeText(getBaseContext(), testParams.get("iso"), Toast.LENGTH_SHORT).show(); // debugging purposes
+	}
 
-        return;// calculate and return new exposure comp and iso values
-    }
+	public void evaluatePreviousImage(File pictureFile)
+	{ // Once the evaluation algorithms are settled to measure jitter, noise, and exposure we will implement here
+
+		// open/find previous image, how to get previous image?
+
+		// Implement algorithm or call library here
+
+		return;// calculate and return new exposure comp and iso values
+	}
 
 
 }
